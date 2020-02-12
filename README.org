@@ -1,0 +1,105 @@
+Building Training Data 
+
+| query                            | class_label | BM_Ids        | BM_Scores           | USE_Ids       | USE_Scores        | questionId | title      | body      |
+|----------------------------------+-------------+---------------+---------------------+---------------+-------------------+------------+------------+-----------|
+| Peux-t-on se faire rembourser ?  |           0 | [56, 13, ...] | [57.59, 25.44, ...] | [56, 4, ...]  | [0.38, 0.33, ...] |         12 | title.text | body.text |
+| Annulation possible ?            |           0 | [37, 57, ...] | [30.52, 24.65, ...] | [37, 4, ...]  | [0.29, 0.22, ,..] |         12 |            |           |
+| je souhaite annuler mon billet ? |           0 | [56, 13, ...] | [53.96, 52.59, ...] | [56, 37, ...] | [0.53, 0.39, ...] |         12 |            |           |
+| ...                              |         ... | ...           | ...                 | ...           | ...               |        ... |            |           |
+| Mon train est il en retard ?     |          71 | [37, 59, ...] | [90.89, 57.31, ...] | [59, 53, ...] | [0.39, 0.33, ...] |        278 |            |           |
+
+* Installation
+  - Load docker image
+    #+BEGIN_SRC shell
+    cd elasticsearch_docker docker-compose up -d
+    #+END_SRC
+
+  - Install virtualenvironement and required packages
+    #+BEGIN_SRC shell
+    python3 -m venv create_training_data_env # create virtual environement
+    source create_training_data_env/bin/activate
+    python3 -m pip install -r requirements.txt
+    cd create_training_data
+    python3 -m pip install -e .
+    #+END_SRC
+
+* Structure
+  
+  Models from other Repos
+  - scripts from USE_static_KB
+    - build.py (here build_use.py) - used as module
+    - make_query.py (here make_query_use.py) - used as module 
+  - scripts from BM_static_KB
+    - index.py (here index_elasticsearch.py)  - used as module
+    - make_query.py (here make_query_bm25.py) - used as module
+
+  What's happening?
+
+    1. Builds the data necessary to use Universal Sentence encoder
+       (runs main from build_use.py)
+    2. Indexes the data in ES
+       (runs main from index_elasticsearch.py)
+    3. loads the KB in form of the json given as input
+    4. Builds questionId - Class_label reference dicts and saves them
+    5. loads the KB with vectors, created with main_build_use
+    6. initialises hub_module USE
+    7. sets up Elasticsearch Client
+    8. Makes calls at USE and ES (BM25) and save the responses list of dicts
+            - iteratively over the entries in data_with_queries.json
+       1. get query and class -> write to dict
+       2. make BM25-query -> write to dict
+       3. make USE-query -> write to dict
+    9. Create pd.DataFrame from this list of dicts
+
+* Requirements
+  
+** Requirements
+   Are installed with requirements.txt
+   #+BEGIN_SRC shell
+   python -m pip install elasticsearch6>=6.0.0,<7.0.
+   python -m pip install spacy==2.2
+   python -m pip install tensorflow>=2.0.0
+   python -m pip install tensorflow_hub>=0.6.0
+   python -m pip install tensorflow_text>=2.0.0rc0
+   #+END_SRC
+
+** Universal Sentence Encoder Prerequisites
+
+   [[https://tfhub.dev/google/universal-sentence-encoder-multilingual/3][Model is available on TensorflowHub]]
+   
+   [[https://tfhub.dev/google/collections/universal-sentence-encoder/1][Collection of universal-sentence-encoder]]
+
+   Total size: 334.32MB
+   saved in cache
+   INFO:absl:Using /var/folders/4n/qmjbytzd0pbc0n7bpp9wh3dc0000gs/T/tfhub_modules to cache modules.
+
+** Version and Format
+   Since Version2 (we're using version3) it was retrained using Tensorflow2
+   
+   Format: TF2.0 Saved Model [[https://www.tensorflow.org/guide/saved_model]]
+   Fine tunable: Yes
+
+   This module relies on the Tensorflow Text for input preprocessing.
+   [[https://github.com/tensorflow/text]]
+
+** Security 
+   
+   Using TensorFlow Securely
+   [[https://github.com/tensorflow/tensorflow/blob/master/SECURITY.md]]
+** Spacy
+  French model must be downloaded first
+  #+BEGIN_SRC shell
+  $ python3 -m spacy download fr_core_news_md
+  #+END_SRC
+  
+  - output
+    #+BEGIN_SRC shell
+    ...
+    Installing collected packages: fr-core-news-md
+    Running setup.py install for fr-core-news-md ... done
+    Successfully installed fr-core-news-md-2.2.0
+    ✔ Download and installation successful
+    You can now load the model via spacy.load('fr_core_news_md')
+    #+END_SRC
+  - location
+    stored in root_of_virtualenv/lib/python3.7/site_packages

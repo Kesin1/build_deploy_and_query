@@ -1,0 +1,133 @@
+{
+  "index_patterns" : ["en"],
+  "mappings": {
+    "question": {
+      "properties": {
+        "questionId": {
+          "type": "integer"
+        },
+        "title": {
+          "type": "text",
+          "analyzer": "english_light",
+          "fields": {
+            "stemmed": {
+              "type": "text",
+              "analyzer": "english_heavy"
+            }
+          }
+        },
+        "titleReword": {
+          "type": "text",
+          "analyzer": "english_light",
+          "fields": {
+            "stemmed": {
+              "type": "text",
+              "analyzer": "english_heavy"
+            }
+          }
+        },
+        "questionSlug": {
+          "type": "keyword"
+        },
+        "boost": {
+          "type": "integer"
+        },
+        "knowlegdebaseId": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "keyword"
+        },
+        "promoted":    { "type": "boolean"  },
+        "frequent":    { "type": "boolean"  },
+        "responses": {
+          "type": "nested",
+          "properties": {
+            "responseId": {
+              "type": "integer"
+            },
+            "body": {
+              "type": "text",
+              "analyzer": "english_light",
+              "fields": {
+                "stemmed": {
+                  "type": "text",
+                  "analyzer": "english_heavy"
+                }
+              }
+            },
+            "channel": {
+              "type": "keyword"
+            },
+            "status": {
+              "type": "keyword"
+            }
+          }
+        },
+        "filters": {
+          "type": "nested",
+          "properties": {
+            "filterId": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "keyword"
+            },
+            "type": {
+              "type": "keyword"
+            },
+            "slug": {
+              "type": "keyword"
+            },
+            "active": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    }
+  },
+  "settings": {
+    "analysis": {
+      "filter": {
+        "english_stop": {
+          "type":       "stop",
+          "stopwords":  "_english_"
+        },
+        "english_synonym": {
+          "type": "synonym",
+          "format": "wordnet",
+          "synonyms_path": "analysis/wn_s.pl"
+        },
+        "english_stemmer": {
+          "type":       "stemmer",
+          "language":   "english"
+        },
+        "english_possessive_stemmer": {
+          "type":       "stemmer",
+          "language":   "possessive_english"
+        }
+      },
+      "analyzer": {
+        "english_heavy": {
+          "tokenizer": "standard",
+          "filter": [
+            "english_possessive_stemmer",
+            "english_synonym",
+            "lowercase",
+            "english_stop",
+            "english_stemmer"
+          ]
+        },
+        "english_light": {
+          "tokenizer": "standard",
+          "filter": [
+            "english_stemmer",
+            "english_synonym",
+            "icu_folding"
+          ]
+        }
+      }
+    }
+  }
+}
