@@ -1,0 +1,69 @@
+[DEFAULT]
+ClientName = ouigo
+spacy_model = fr_core_news_md
+hub_model = https://tfhub.dev/google/universal-sentence-encoder-multilingual-large/3
+data_kb_with_vectors_file = data_kb_with_vectors.pkl
+training_data_file = training_data.csv
+mapping_json_file = mapping.json
+bulk_request_json_model = {
+    "questionId": null,
+    "title": null,
+    "titleReword": null,
+    "responses": [
+        {
+            "body": null
+        }
+    ]
+    }
+Query_Json_model = {
+    "query": {
+        "bool": {
+            "minimum_should_match": "1",
+            "should": [
+                {
+                    "multi_match": {
+                        "query": null,
+                        "fuzziness": "AUTO",
+                        "type": "most_fields",
+                        "fields": [
+                            "title^5",
+                            "title.stemmed^5",
+                            "titleReword^3",
+                            "titleReword.stemmed^3"
+                        ]
+                    }
+                },
+                {
+                    "nested": {
+                        "path": "responses",
+                        "query": {
+                            "multi_match": {
+                                "query": null,
+                                "fuzziness": "AUTO",
+                                "type": "most_fields",
+                                "fields": [
+                                    "responses.body",
+                                    "responses.body.stemmed"
+                                ]
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "suggest": {
+        "text": null,
+        "suggest-title": {
+            "term": {
+                "field": "title"
+            }
+        },
+        "suggest-responses": {
+            "term": {
+                "field": "responses.body"
+            }
+        }
+    },
+    "explain": false
+    }

@@ -1,0 +1,191 @@
+"""Query against the KB that is stored in all_docs_with_vectors.pkl
+
+The dictionary in all_docs_with_vectors.pkl is described in build.py
+
+This script is doing the following. 
+1. Loads KB that is stored in all_docs_with_vectors.pkl
+2. Iterates over the entries and calculates the scores - 
+   creating list of tuples (questionId, score)
+3. orders the list created in 2
+
+This script requires to have the all_docs_with_vectors.pkl in the 
+file folder
+
+This script requires to have installed
+numpy
+pandas
+"""
+
+import argparse
+import logging
+import json
+import pickle
+import copy
+import operator
+import numpy as np
+
+from argparse import RawTextHelpFormatter
+from pathlib import Path
+from definitions import DATA_KB_WITH_VECTORS_FILE
+from build_use import initialize_use_model
+
+def load_pickle_file(filepath: Path) -> dict:
+    """loads pkl file from filepath"""
+    with open(filepath, 'rb') as fp:
+        data = pickle.load(fp)
+    return data
+
+
+
+def calculate_score_entry(query_vector: np.ndarray, entry: dict,
+                          without_stopwords: bool,
+                          num_of_sentences: int) -> np.float32: 
+    """
+    Calculates each score for each entry in data_kb_with_vectors against the query
+
+    Parameters
+    ----------
+    query_vector: np.ndarray
+        vector corresponding to the query infered with USE
+    entry: dictionary
+        like example_entry_with_vectors.py
+    without_stopwords: bool
+        indicating if stopwords should be removed
+    num_of_sentences: int
+        integer indicating how many sentences of the body should be included
+        in the calculation
+
+    Returns
+    -------
+    list
+        np.float32
+    """
+
+    # get the vectors
+    # title vector is stored seperately to have the only title option later
+    # sentence vectors are stored inside a matrix
+    if without_stopwords:
+        title_vector = entry['title_wo_stopwords']['vector']
+        sentence_vectors = np.vstack([sentence['vector'] for sentence in entry['body_wo_stopwords']])
+    else:
+        title_vector = entry['title']['vector']
+        sentence_vectors = np.vstack([sentence['vector'] for sentence in entry['body']])
+        
+
+    # use inner product as score for each sentence
+    title_score = np.inner(query_vector, title_vector)
+    sentence_scores = np.inner(query_vector, sentence_vectors).flatten()
+    
+    # sort sentence scores
+    sentence_scores = np.sort(sentence_scores)[::-1]
+
+    # calculates average of title score and the average over the num_of_sentences best sentence_scores
+    avg_sentence_score = np.mean(sentence_scores[:3])
+
+    # cast single value array to np.float32
+    return np.float32(np.mean([title_score, avg_sentence_score]).item())
+
+
+def calculate_scores_kb(query_vector: np.ndarray, data_kb_with_vectors: list,
+                        args: argparse.ArgumentParser(),
+                        logger: logging.getLogger()) -> list:
+    """
+    Calculates each score for each entry in data_kb_with_vectors 
+    against the query
+
+    Parameters
+    ----------
+    query_vector: np.ndarray
+        vector corresponding to the query infered with USE
+    data_kb_with_vectors: list
+        list with entries of kb with vectors (look build.py, adding_vectors)
+    args: args: argparse.ArgumentParser()
+    logger: logging.getLogger() object
+
+    Returns
+    -------
+    list
+        list of dictionaries {questionId: int, score: np.float32}
+    """
+
+    # get arguments
+    without_stopwords = args.without_stopwords
+    num_of_sentences = args.num_of_sentences
+
+    # iterate over the entries and calculate_scores
+    logger.info("# iterate over the entries and calculate_scores")
+    list_scores = []
+    for entry in data_kb_with_vectors:
+        new_dict = {}
+        new_dict["questionId"] = entry["questionId"]
+        new_dict["score"] = calculate_score_entry(query_vector, entry,
+                                                  without_stopwords, num_of_sentences)
+        list_scores.append(copy.deepcopy(new_dict))
+        
+    return list_scores
+
+
+
+def main(args: argparse.ArgumentParser(), logger: logging.getLogger()):
+    """
+    Initializes the models (spacy and USE) and takes the steps mentioned in 
+    the docstring of this script
+
+    Parameters
+    ----------
+    args: argparse.ArgumentParser
+        The command line arguments given
+    logger: logging.getLogger
+        logger on DEBUG level
+
+    Returns
+    -------
+    ordered list of dictionaries {'questionId: ..., 'score: }
+    """
+
+    # load data_kb_with_vectors
+    logger.info("# load data_kb_with_vectors")
+    data_kb_with_vectors = load_pickle_file(Path(DATA_KB_WITH_VECTORS_FILE))
+
+    # Initialize the use_model as tensorflow_hub module
+    logger.info("# Initialize the use_model as tensorflow_hub module")
+    embed = initialize_use_model()
+
+    # infer query_vector
+    query_vector = embed(args.query).numpy()
+    
+    # calculate_scores
+    use_scores = calculate_scores_kb(query_vector,data_kb_with_vectors,
+                                  args,logger)
+
+    # sort the list of dictionaries
+    use_scores = sorted(use_scores, key=operator.itemgetter("score"), reverse=True)
+
+    return use_scores
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
+    logger = logging.getLogger()
+
+    # Argument parsing
+    logger.info("# Argument parsing")
+    parser = argparse.ArgumentParser(description="Input: query_string\nOutput: list of {questionId:... ;score:... }",
+        formatter_class=RawTextHelpFormatter)
+
+    # query
+    args = parser.add_argument("query", type=str, help="a query string")
+    # with or without stopwords
+    parser.add_argument("--without_stopwords", "--wo", help="Flag, "
+                        "if set then calculate_scores without stopwords in a documents body", action="store_true")
+
+    # How many sentences of the body shall be included in calculation
+    parser.add_argument('--num_of_sentences', type=int, choices=range(6),
+                        help="Up to num_of_sentences sentences "
+                        "of the body shall be included inside the calculation for the scores.\n"
+                        "Maximum: 5\n"
+                        "if nothing or 0 then only question title", default=1)
+
+    args = parser.parse_args()
+
+    main(args, logger)

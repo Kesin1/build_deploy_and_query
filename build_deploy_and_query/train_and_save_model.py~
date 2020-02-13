@@ -1,0 +1,129 @@
+import numpy as np
+import pandas as pd
+import logging
+import argparse
+import ast
+
+from pathlib import Path
+from argparse import RawTextHelpFormatter
+from joblib import dump, load
+from pickle import dump as pickle_dump
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+
+from definitions import CLIENT, TRAINING_DATA_FILE, FILTER_DATA_TOP_N
+from utils import encode_ids_and_scores
+
+
+def prepare_training_data(training_data: pd.DataFrame, logger: logging.getLogger(), filter_data_top_n=0) -> pd.DataFrame:
+    """Adds columns: [bm25_scores_encoded, use_scores encoded, scores_concatenated]
+
+    Parameters
+    ----------
+    training_data: pd.DataFrame
+        Needs to have columns
+        ['bm25_class_labels', 'bm25_scores', 'use_class_labels', 'use_scores']
+        Columns are lists encoded as string at this moment -> will be converted to lists
+
+    filter_data_top_n: integer
+        if n >= 0, will filter all datapoints where correct result was under first n responses
+        in USE and BM25
+
+    Returns
+    -------
+    training_data: pd.DataFrame
+        The df extended by [bm25_scores_encoded, use_scores encoded, scores_concatenated]
+    """
+
+    # evaluate the list values in the dataframe
+    logger.info("# evaluate the list values in the dataframe")
+    for column in ['bm25_class_labels', 'bm25_scores', 'use_class_labels', 'use_scores']:
+        training_data[column] = training_data[column].apply(ast.literal_eval)
+
+    # infer the number of classes
+    logger.info("# infer the number of classes")
+    num_of_classes = training_data.class_label.nunique()
+    
+    # encode scores and write new columns
+    logger.info("# encode scores and write new columns")
+    training_data["bm25_scores_encoded"] = training_data[["bm25_class_labels", "bm25_scores"]].apply(
+        lambda x: encode_ids_and_scores(x, num_of_classes), axis=1)
+    training_data["use_scores_encoded"] = training_data[["use_class_labels", "use_scores"]].apply(
+        lambda x: encode_ids_and_scores(x, num_of_classes), axis=1)
+    training_data["scores_concatenated"] = training_data[["bm25_scores_encoded",
+                                                          "use_scores_encoded"]].apply(
+                                                              lambda row: np.concatenate((row[0], row[1])), axis=1)
+
+    # this function filters out the training data by only taking those datapoints of USE and BM25
+    # where the right result has been under top_n responses
+    # don't train on something where there is absolute missing information
+    def filter_result_not_found_under_n_responses(row, n):
+        class_ = row["class_label"]
+        if class_ not in row["bm25_class_labels"][:n] or class_ not in row["use_class_labels"][:n]:
+            return False
+        else:
+            return True
+
+
+    if filter_data_top_n:
+        logger.info("# Filter datapoints")
+        training_data = training_data[training_data.apply(
+            lambda row: filter_result_not_found_under_n_responses(row, filter_data_top_n), axis=1)]
+
+    return training_data
+
+
+def train_and_save_model(training_data: pd.DataFrame, args: argparse.ArgumentParser(), logger: logging.getLogger()) -> LogisticRegression():
+    """Trains and saves model and associated scaler
+
+    Parameters
+    ---------
+    training_data: pd.DataFrame
+       DataFrame containing the data to train on in prepared form
+
+    args: argparse.ArgumentParser()
+
+    logger: logging.getLogger()
+
+    Sideeffects
+    -----------
+    Creates
+       CLIENT + '_standard_scaler.pkl'
+       CLIENT + '_model.joblib' and 
+    """
+
+    # prepare training
+    logger.info("# prepare training")
+    training_data = prepare_training_data(training_data, logger, FILTER_DATA_TOP_N)
+    
+    # get the numerical data
+    logger.info("# get the numerical data")
+    X_train = np.matrix(
+        training_data["scores_concatenated"].tolist()).astype(np.float32)
+    y_train = training_data["class_label"].values.astype(np.float32)
+
+    # StandardScalings
+    logger.info("# StandardScaling")
+    std_scaler = StandardScaler()
+    std_scaler.fit(X_train)
+
+    # scale X_train 
+    logger.info("# scale X_train")
+    X_train_scaled = std_scaler.transform(X_train)
+
+    # # Save StandardScaler
+    # logger.info("# Save StandardScaler")
+    # pickle_dump(std_scaler, open(CLIENT + '_standard_scaler.pkl', 'wb'))
+
+    # train model
+    logger.info("# train model")
+    model = LogisticRegression(
+        solver="saga", multi_class='multinomial', max_iter=1000, verbose=True, tol=1e-2)
+    model.fit(X_train_scaled, y_train)
+
+    # # save model
+    # logger.info("# save model")
+    # dump(model, open(CLIENT + '_model.joblib', 'wb'))
+
+    return model, std_scaler
