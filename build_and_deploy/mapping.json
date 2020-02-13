@@ -1,0 +1,175 @@
+{
+  "mappings": {
+    "question": {
+      "properties": {
+        "questionId": {
+          "type": "text"
+        },
+        "embeddedVector": {
+    		"type": "binary",
+        	"doc_values": true
+    	},	
+        "title": {
+          "type": "text",
+          "similarity": "my_bm25",
+          "norms": false,
+          "analyzer": "french_light",
+          "fields": {
+            "stemmed": {
+              "type": "text",
+              "analyzer": "french_heavy"
+            }
+          }
+        },
+        "titleReword": {
+          "type": "text",
+          "similarity": "my_bm25",
+          "norms": false,
+          "analyzer": "french_light",
+          "fields": {
+            "stemmed": {
+              "type": "text",
+              "analyzer": "french_heavy"
+            }
+          }
+        },
+        "boost": {
+          "type": "integer"
+        },
+        "knowlegdebaseId": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "keyword"
+        },
+        "promoted":    { "type": "boolean"  },
+        "frequent":    { "type": "boolean"  },
+        "responses": {
+          "type": "nested",
+          "properties": {
+            "responseId": {
+              "type": "integer"
+            },
+            "body": {
+              "type": "text",
+              "similarity": "my_bm25",
+              "norms": false,
+              "analyzer": "french_light",
+              "fields": {
+                "stemmed": {
+                  "type": "text",
+                  "analyzer": "french_heavy"
+                }
+              }
+            },
+            "channel": {
+              "type": "keyword"
+            },
+            "status": {
+              "type": "keyword"
+            }
+          }
+        },
+        "filters": {
+          "type": "nested",
+          "properties": {
+            "filerId": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "keyword"
+            },
+            "type": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    }
+  },
+  "settings": {
+    "similarity": {
+      "my_bm25": {
+        "type": "BM25",
+        "b":    0
+      }
+    },
+    "analysis": {
+      "char_filter": {
+        "french_char_filter": {
+          "type": "html_strip"
+        }
+      },
+      "filter": {
+        "french_stopwords": {
+          "type":       "stop",
+          "stopwords":  "analysis/fr_stopwords.txt",
+          "ignore_case": true
+        },
+        "french_elision": {
+          "type": "elision",
+          "articles_case": true,
+          "articles": [
+            "l",
+            "m",
+            "t",
+            "qu",
+            "n",
+            "s",
+            "j",
+            "d",
+            "c",
+            "jusqu",
+            "quoiqu",
+            "lorsqu",
+            "puisqu"
+          ]
+        },
+        "french_synonym": {
+          "type": "synonym",
+          "ignore_case": true,
+          "expand": true,
+          "lenient": true,
+          "synonyms_path" : "analysis/fr_synonym.txt"
+        },
+        "french_stemmer": {
+          "type": "stemmer",
+          "language": "light_french"
+        },
+        "french_duplicate": {
+          "type": "remove_duplicates"
+        },
+        "length_filter": {
+          "type": "length",
+          "min": 2,
+          "max": 100
+        }
+      },
+      "analyzer": {
+        "french_heavy": {
+          "tokenizer": "icu_tokenizer",
+          "char_filter": ["french_char_filter"],
+          "filter": [
+            "french_elision",
+            "icu_folding",
+            "length_filter",
+            "french_stopwords",
+            "french_synonym",
+            "french_stemmer",
+            "french_duplicate"
+          ]
+        },
+        "french_light": {
+          "tokenizer": "icu_tokenizer",
+          "char_filter": ["french_char_filter"],
+          "filter": [
+            "french_elision",
+            "icu_folding",
+            "length_filter",
+            "french_stopwords"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -5,8 +5,8 @@ __all__ = ["ROOT", "CLIENT", "TRAINING_DATA_FILE", "FILTER_TOP_N", "SPACY_MODEL"
            "INDEX_NAME", "BULK_REQUEST_JSON_MODEL", "MAPPING_JSON_FILE", "SEARCH_SIZE", "QUERY_JSON_MODEL", "NUM_OF_SCORES"]
 
 if 'ROOT_build_and_deploy' not in environ:
-    environ["ROOT_build_and_deploy"] = os.path.dirname(
-        os.path.abspath(__file__))
+    environ["ROOT_build_and_deploy"] = os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__)))
 
 ROOT = os.getenv('ROOT_build_and_deploy', '')
 
