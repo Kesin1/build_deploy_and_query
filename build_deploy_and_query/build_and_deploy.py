@@ -1,5 +1,6 @@
 import argparse
 import logging
+import configparser
 import json
 import pickle
 import copy
@@ -114,21 +115,22 @@ def get_data_points(
 
 
 def save_data(
-    KB_id,
     logreg_model,
     std_scaler,
     df_training_data,
     qid_to_class,
     class_to_qid,
+    all_docs_kb,
     data_kb_with_vectors,
+    args
 ):
     """Saves the new model in models/KB_id_{KB_id} with the scaler, 
        the training data, the ref-tables and the data_kb_with_vectors
     """
 
-    KB_id = 1
     path = Path(ROOT)
-
+    KB_id = args.KB_id
+    
     path_live = path / "models" / f"KB_id_{KB_id}" / "live"
     path_live.mkdir(parents=True, exist_ok=True)
 
@@ -154,6 +156,8 @@ def save_data(
     # save training data
     df_training_data.to_csv(path_live / TRAINING_DATA_FILE, sep=";")
 
+    # save all_docs_kb
+    save_pickle_dict(data_kb_with_vectors, path_live / args.filepath_json)
     # save data_kb_with_vector
     save_pickle_dict(data_kb_with_vectors, path_live / DATA_KB_WITH_VECTORS_FILE)
 
@@ -170,6 +174,22 @@ def save_data(
         fp.write(
             f"Went live at: {datetime.now().strftime('%d_%m_%Y_time_%H_%M_%S')}"
         )
+
+    # saves config file of how the model was created
+    configfile_name = path_live/"config.cfg"
+    # Check if there is already a configurtion file
+    if not os.path.isfile(configfile_name):
+        # Create the configuration file as it doesn't exist yet
+        cfgfile = open(configfile_name, 'w')
+
+        # Add content to the file
+        Config = configparser.ConfigParser()
+        Config.set(configparser.DEFAULTSECT, 'without_stopwords', str(args.without_stopwords))
+        Config.set(configparser.DEFAULTSECT, 'num_of_sentences', str(args.num_of_sentences))
+        Config.write(cfgfile)
+        cfgfile.close()
+
+        
     return
 
 
@@ -257,13 +277,14 @@ def main(args: argparse.ArgumentParser(), logger: logging.getLogger()):
 
     # save
     save_data(
-        args.KB_id,
         model,
         scaler,
         df_training_data,
         qid_to_class,
         class_to_qid,
+        all_docs_kb,
         data_kb_with_vectors,
+        args
     )
     return
 
