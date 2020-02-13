@@ -34,10 +34,10 @@ from utils import (
     build_qid_class_dicts,
 )
 
-from index_elasticsearch import main as main_index_elasticsearch
+from index_elasticsearch import index_kb
 from make_query_bm25 import make_query_bm25
 
-from build_use import main as main_build_use, initialize_use_model, initialize_nlp_model
+from build_use import build_use, initialize_use_model, initialize_nlp_model
 from make_query_use import make_query_use
 
 from train_and_save_model import train_and_save_model
@@ -201,33 +201,33 @@ def main(args: argparse.ArgumentParser(), logger: logging.getLogger()):
     None
     """
 
-    # execute main_build_use
-    logger.info("# execute main_build_use")
-    data_kb_with_vectors = main_build_use(args, logger)
-
-    # execute main index_elasticsearch
-    logger.info("# execute main index_elasticsearch")
-    main_index_elasticsearch(args, logger)
-
     # load the knowledgebase
     logger.info("# load the knowledgebase")
     all_docs_kb = load_json_file(args.filepath_json, logger)
 
-    # Build questionId - Class-label dictionaries
-    logger.info("# Build questionId - Class-label dictionaries")
-    qid_to_class, class_to_qid = build_qid_class_dicts(all_docs_kb, logger)
-
-    # # load data_kb_with_vectors
-    # logger.info("# load data_kb_with_vectors")
-    # data_kb_with_vectors = load_pickle_file(Path(DATA_KB_WITH_VECTORS_FILE))
+    # setup Client
+    logger.info("# setup Client")
+    client = Elasticsearch()
 
     # Initialize the use_model as tensorflow_hub module
     logger.info("# Initialize the use_model as tensorflow_hub module")
     embed = initialize_use_model()
 
-    # setup Client
-    logger.info("# setup Client")
-    client = Elasticsearch()
+    # initialize_nlp_model
+    logger.info("# initialize_nlp_model")
+    nlp = initialize_nlp_model()
+    
+    # execute main_build_use
+    logger.info("# execute main_build_use")
+    data_kb_with_vectors = build_use(embed, nlp, args, logger)
+
+    # execute main index_elasticsearch
+    logger.info("# execute main index_elasticsearch")
+    index_kb(all_docs_kb, client, args, logger)
+
+    # Build questionId - Class-label dictionaries
+    logger.info("# Build questionId - Class-label dictionaries")
+    qid_to_class, class_to_qid = build_qid_class_dicts(all_docs_kb, logger)
 
     # create training data points
     logger.info("# create training data points")
@@ -269,7 +269,7 @@ def main(args: argparse.ArgumentParser(), logger: logging.getLogger()):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.CRITICAL)
+    logging.basicConfig(level=logging.DEBUG)
     logger = logging.getLogger()
 
     # Argument parsing

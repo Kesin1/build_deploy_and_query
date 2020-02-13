@@ -212,7 +212,7 @@ def adding_vectors(new_docs: list, embed: hub.module) -> list:
     return new_docs_with_vectors
 
 
-def main(args: argparse.ArgumentParser(), logger: logging.getLogger()) -> int:
+def build_use(embed: hub.Module, nlp: spacy.load, args: argparse.ArgumentParser(), logger: logging.getLogger()) -> int:
     """
     Initializes the models (spacy and USE) and takes the steps mentioned in 
     the docstring of this script
@@ -228,14 +228,6 @@ def main(args: argparse.ArgumentParser(), logger: logging.getLogger()) -> int:
     -------
     None
     """
-
-    # initialize_nlp_model
-    logger.info("# initialize_nlp_model")
-    nlp = initialize_nlp_model()
-
-    # Initialize the use_model as tensorflow_hub module
-    logger.info("# Initialize the use_model as tensorflow_hub module")
-    embed = initialize_use_model()
 
     # load the data
     logger.info("# load the data")
