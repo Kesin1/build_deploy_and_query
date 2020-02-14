@@ -30,6 +30,7 @@ from definitions import (
 
 from utils import (
     load_json_file,
+    save_json_file,
     load_pickle_file,
     save_pickle_dict,
     build_qid_class_dicts,
@@ -157,13 +158,13 @@ def save_data(
     df_training_data.to_csv(path_live / TRAINING_DATA_FILE, sep=";")
 
     # save all_docs_kb
-    save_pickle_dict(data_kb_with_vectors, path_live / args.filepath_json)
+    save_json_file(all_docs_kb, path_live / args.filepath_json)
     # save data_kb_with_vector
     save_pickle_dict(data_kb_with_vectors, path_live / DATA_KB_WITH_VECTORS_FILE)
 
     # save reference dictionaries
     save_pickle_dict(qid_to_class, path_live / "qid_to_class.pkl")
-    save_pickle_dict(qid_to_class, path_live / "class_to_qid.pkl")
+    save_pickle_dict(class_to_qid, path_live / "class_to_qid.pkl")
 
     # save scaler
     save_pickle_dict(std_scaler, path_live / "std_scaler.pkl")
@@ -186,6 +187,7 @@ def save_data(
         Config = configparser.ConfigParser()
         Config.set(configparser.DEFAULTSECT, 'without_stopwords', str(args.without_stopwords))
         Config.set(configparser.DEFAULTSECT, 'num_of_sentences', str(args.num_of_sentences))
+        Config.set(configparser.DEFAULTSECT, 'all_docs_kb_filename', str(args.filepath_json))
         Config.write(cfgfile)
         cfgfile.close()
 
@@ -271,7 +273,7 @@ def main(args: argparse.ArgumentParser(), logger: logging.getLogger()):
         ],
     )
 
- 
+
     # train and get the model
     model, scaler = train_and_save_model(df_training_data, args, logger)
 
@@ -290,7 +292,7 @@ def main(args: argparse.ArgumentParser(), logger: logging.getLogger()):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.CRITICAL)
     logger = logging.getLogger()
 
     # Argument parsing

@@ -107,6 +107,9 @@ def train_and_save_model(training_data: pd.DataFrame, args: argparse.ArgumentPar
         training_data["scores_concatenated"].tolist()).astype(np.float32)
     y_train = training_data["class_label"].values.astype(np.float32)
 
+    print(len(set(y_train)))
+
+    
     # StandardScalings
     logger.info("# StandardScaling")
     std_scaler = StandardScaler()

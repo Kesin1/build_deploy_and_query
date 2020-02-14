@@ -15,6 +15,15 @@ def load_json_file(filepath: Path, logger) -> dict:
     return all_docs_kb
 
 
+def save_json_file(new_dict: list, filepath: Path) -> dict:
+    """loads json file"""
+
+    with open(filepath, 'w', encoding='utf-8') as fp:
+        json.dump(new_dict, fp)
+    return 
+
+
+
 def load_pickle_file(filepath: Path) -> dict:
     """loads pkl file from filepath"""
     with open(filepath, 'rb') as fp:
@@ -100,3 +109,19 @@ def encode_ids_and_scores(row, num_of_classes):
         for idx, score in zip(row[0], row[1]):
             scores[idx] = score
     return scores
+
+
+def encode_responses(bm25_response, use_response, num_of_classes, qid_to_class):
+    scores_bm25 = np.zeros(num_of_classes)
+    scores_use = np.zeros(num_of_classes)
+
+    for entry in bm25_response:
+        pos = qid_to_class[entry["questionId"]]
+        score = entry["score"]
+        scores_bm25[pos] = score
+
+    for entry in use_response:
+        pos = qid_to_class[entry["questionId"]]
+        score = entry["score"]
+        scores_use[pos] = score
+    return np.concatenate((scores_bm25, scores_use))
